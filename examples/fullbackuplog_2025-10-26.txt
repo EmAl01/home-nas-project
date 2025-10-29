@@ -1,0 +1,26 @@
+Found USB drive: /dev/sdd
+___
+Starting full backup: Sun Oct 26 01:10:23 PM CET 2025
+
+Deleting old snapshots in naspool/subvol-100-disk-0 (keeping the last 3):
+Less than 3 snapshots found (1) - nothing to delete.
+___
+Snapshot naspool/subvol-100-disk-0@full-2025-10-26 already exists.
+___
+Checking usb zfs pool...
+Zfs pool 'usbbackup' already imported.
+___
+Sending backup to usb pool...
+___
+Dataset size: 66319 MB
+Estimated transfer time (48 MB/s): 0h 23m 1s
+Estimated finish time: 13:33
+___
+Existing backup detected - deleting old dataset and creating new one
+Backup transfer completed
+___
+Exporting usb pool for safe detaching...
+USB-Pool 'usbbackup' successfully exported.
+Full backup completed: Sun Oct 26 01:33:40 PM CET 2025
+Restarting Container
+Container started.
