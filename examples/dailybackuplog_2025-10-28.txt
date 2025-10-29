@@ -1,0 +1,20 @@
+___
+Starting daily backup: Tue Oct 28 08:00:01 PM CET 2025
+
+Deleting old snapshots in naspool/subvol-100-disk-0 (keeping the last 3):
+Less than 3 snapshots found (1) - nothing to delete.
+___
+Deleting old snapshots in backup/subvol-100-disk-0 (keeping the last 3):
+Less than 3 snapshots found (1) - nothing to delete.
+___
+Creating new snapshot: naspool/subvol-100-disk-0@daily-2025-10-28
+___
+Sending backup to backup pool...
+Incremental backup from naspool/subvol-100-disk-0@daily-2025-10-26 to naspool/subvol-100-disk-0@daily-2025-10-28
+___
+Dataset size: 66320 MB
+Estimated transfer time (80 MB/s): 0h 13m 49s
+Estimated finish time: 20:13
+___
+Backup completed: Tue Oct 28 08:01:14 PM CET 2025
+Shutting down NAS.
