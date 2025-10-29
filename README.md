@@ -3,7 +3,7 @@ DIY NAS with automated incremental and full ZFS backups, logging and restore scr
 
 ## Description
 This project implements a fully automated backup and recovery environment for a home NAS system.  
-It uses **ZFS snapshots**, **incremental and full backups**, **custom Bash automation**, and a **structured logging system** to ensure safe, traceable, and repeatable data operations.  
+It uses **ZFS snapshots**, **incremental and full backups**, **custom Bash automation** and a **structured logging system** to ensure safe, traceable and repeatable data operations.  
 The system is isolated within a local network and is designed for long-term reliability and easy restoration.
 
 ## Why this project?
@@ -82,7 +82,7 @@ Beyond the technical goals, it was also a personal challenge to build a **fully 
 This project helps to understand how a **reliable and automated data infrastructure** is build from the ground up.  
 It reflects a deep understanding of **system design, fault tolerance, automation, and maintainability** — essential skills that go beyond traditional application development.  
 
-By combining **Proxmox, ZFS, and Bash scripting**, the system achieves:
+By combining **Proxmox, ZFS, and Bash scripting** the system achieves:
 - data redundancy  
 - automation without dependencies  
 - transparent logging  
@@ -93,7 +93,6 @@ By combining **Proxmox, ZFS, and Bash scripting**, the system achieves:
 ## Author
 
 **Emre Altunok**  
-Software Developer  
-Passionate about Linux, automation, and self-hosted solutions  
+Software Developer and passionate about Linux, automation, and self-hosted solutions  
 
 > 🌍 Available languages: [Deutsch (README.de.md)](./README.de.md)
