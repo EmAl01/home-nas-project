@@ -1,0 +1,35 @@
+___
+Starting restore data: Wed Oct 29 12:39:20 PM CET 2025
+
+-----------------------------------------
+NAS Data Pool Restore
+-----------------------------------------
+Please choose a backup source:
+1) Internal backup drive
+2) External backup drive
+q) Quit
+-----------------------------------------
+Your choice [1/2/q]: Using external backup drive...
+___
+Checking for usb drive...
+Found USB drive: /dev/sdd
+___
+Checking usb zfs pool...
+Zfs pool 'usbbackup' already imported.
+___
+Listing available ZFS snapshots for full backup...
+Available full snapshots:
+1) usbbackup/subvol-100-disk-0@full-2025-10-29
+___
+Enter the number of the snapshot to restore: ___
+Are you sure you want to restore from this snapshot? (y/n): Restoring data with usbbackup/subvol-100-disk-0@full-2025-10-29
+Dataset size: 72399 MB
+Estimated transfer time (100 MB/s): 0h 12m 3s
+Estimated finish time: 12:51
+___
+Restore completed successfully.
+Exporting usb pool for safe detaching...
+USB-Pool 'usbbackup' successfully exported.
+Restoring data completed: Wed Oct 29 12:54:55 PM CET 2025
+Restarting Container
+Container started.
