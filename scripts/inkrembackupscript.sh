@@ -21,51 +21,11 @@ echo "___"
 
 NASPOOL="naspool/subvol-100-disk-0"
 BACKUP="backup/subvol-100-disk-0"
+KEEP_COUNT=3	#how many recent NASPOOL snapshots to keep
+TRANSFER_SPEED_MB=80  
 
 echo "Starting daily backup: $(date)"
 echo ""
-
-# ===========================
-# Deleting old snapshots (keep last 3)
-# ===========================
-for TARGET in "$NASPOOL" "$BACKUP"; do
-        echo "Deleting old snapshots in $TARGET (keeping the last 3):"
-
-        # List all 'daily' snapshots, oldest first
-        SNAPLIST=$(zfs list -H -t snapshot -o name -s creation | grep "^${TARGET}@daily-" || true)
-
-        # Count how many snapshots exist
-        if [ -n "$SNAPLIST" ]; then
-                SNAPCOUNT=$(echo "$SNAPLIST" | wc -l)
-        else
-                SNAPCOUNT=0
-        fi
-
-        # If there are more than 3, delete the oldest ones
-        if [ "$SNAPCOUNT" -gt 3 ]; then
-                TODELETE=$((SNAPCOUNT - 3))
-                echo "Found $SNAPCOUNT snapshots, deleting $TODELETE oldest..."
-                echo "$SNAPLIST" | head -n "$TODELETE" | while read -r SNAP; do
-                        echo "Deleting snapshot: $SNAP"
-                        zfs destroy "$SNAP" || echo "Couldn't delete $SNAP"
-                done
-        else
-                echo "Less than 3 snapshots found ($SNAPCOUNT) - nothing to delete."
-        fi
-        echo "___"
-done
-
-# ===========================
-# Creating new NASPOOL snapshot
-# ===========================
-if ! zfs list -t snapshot | grep -q "${NASPOOL}@daily-${TODAY}"; then
-	echo "Creating new snapshot: ${NASPOOL}@daily-${TODAY}"
-	zfs snapshot "${NASPOOL}@daily-${TODAY}"
-	echo "___"
-else
-	echo "Snapshot ${NASPOOL}@daily-${TODAY} already exists."
-	echo "___"
-fi
 
 # ===========================
 # Calculating estimated time
@@ -102,35 +62,101 @@ calculateestimatedtime() {
 }
 
 # ===========================
-# Sending backup
+# Snapshot management
 # ===========================
-echo "Sending backup to backup pool..."
-LAST_BACKUP=$(zfs list -t snapshot -o name -s creation -r ${BACKUP} | tail -n 1)
+echo "Checking existing snapshots"
 
-if [ -n "$LAST_BACKUP" ]; then
-	SNAPNAME="${LAST_BACKUP##*@}"
-	LAST_NASPOOL_SNAPSHOT="${NASPOOL}@${SNAPNAME}"
+LATEST_BACKUP_SNAP=$(zfs list -t snapshot -o name -s creation -r ${BACKUP} | grep "${BACKUP}@daily-" | tail -n 1 || true)
+LATEST_NASPOOL_SNAP=$(zfs list -t snapshot -o name -s creation -r ${NASPOOL} | grep "${NASPOOL}@daily-" | tail -n 1 || true)
+TODAY_SNAPSHOT="${NASPOOL}@daily-${TODAY}"
 
-	if zfs list -t snapshot | grep -q "$LAST_NASPOOL_SNAPSHOT" && [ "$SNAPNAME" != "daily-${TODAY}" ]; then
-		echo "Incremental backup from $LAST_NASPOOL_SNAPSHOT to ${NASPOOL}@daily-${TODAY}"
-		echo "___"
+# Find common snapshot (same name, both sides exist)
+COMMON_SNAPSHOT=""
+if [ -n "$LATEST_BACKUP_SNAP" ]; then
+	echo "Latest backup snap: $LATEST_BACKUP_SNAP"
+	SNAP_NAME="${LATEST_BACKUP_SNAP##*@}"
+	NASPOOL_MATCH="${NASPOOL}@${SNAP_NAME}"
 
-		calculateestimatedtime "$LAST_NASPOOL_SNAPSHOT" "80"
-
-		zfs send -i "$LAST_NASPOOL_SNAPSHOT" "${NASPOOL}@daily-${TODAY}" | zfs receive -F ${BACKUP}
+	if zfs list -H -t snapshot -o name | grep -q "^${NASPOOL_MATCH}$"; then
+		# Optional: compare GUIDs for absolute certainty
+		B_GUID=$(zfs get -Hp -o value guid "$LATEST_BACKUP_SNAP")
+		N_GUID=$(zfs get -Hp -o value guid "$NASPOOL_MATCH")
+		if [ "$B_GUID" == "$N_GUID" ]; then
+			COMMON_SNAPSHOT="$NASPOOL_MATCH"
+			echo "Found common snapshot: $COMMON_SNAPSHOT"
+		else
+			echo "Snapshot names match but GUIDs differ — cannot use incremental."
+		fi
 	else
-		echo "No valid snapshot found or backup already up to date"
-		echo "No incremental backup performed."
+		echo "No matching snapshot found on NASPOOL side."
 	fi
 else
-	echo "No existing backup snapshot found."
-	echo "Performing full backup..."
+	echo "No backup snapshots found."
+fi
+echo "___"
+
+# ===========================
+# Deleting old snapshots (keep last 3)
+# ===========================
+echo "=== Deleting old NASPOOL snapshots (keeping ${KEEP_COUNT} + common) ==="
+SNAPLIST=$(zfs list -H -t snapshot -o name -s creation | grep "^${NASPOOL}@daily-" || true)
+KEEP_SNAPS=()
+
+if [ -n "$COMMON_SNAPSHOT" ]; then
+	KEEP_SNAPS+=("$COMMON_SNAPSHOT")
+fi
+
+LATEST_N=$(echo "$SNAPLIST" | tail -n $KEEP_COUNT)
+KEEP_SNAPS+=($LATEST_N)
+
+for SNAP in $SNAPLIST; do
+	if ! echo "${KEEP_SNAPS[@]}" | grep -q "$SNAP"; then
+		echo "Deleting old snapshot: $SNAP"
+		zfs destroy "$SNAP" || echo "Couldn't delete $SNAP"
+	fi
+done
+echo "___"
+
+# ===========================
+# Creating new NASPOOL snapshot
+# ===========================
+if ! zfs list -t snapshot | grep -q "${NASPOOL}@daily-${TODAY}"; then
+	echo "Creating new snapshot: ${NASPOOL}@daily-${TODAY}"
+	zfs snapshot "${NASPOOL}@daily-${TODAY}"
+	echo "___"
+else
+	echo "Snapshot ${NASPOOL}@daily-${TODAY} already exists."
+	echo "___"
+fi
+
+# ===========================
+# Perform backup (incrementel or full)
+# ===========================
+echo "=== Starting backup process ==="
+calculateestimatedtime "$TODAY_SNAPSHOT" "$TRANSFER_SPEED_MB"
+
+if [ -n "$COMMON_SNAPSHOT" ]; then
+	echo "Performing incremental backup:"
+	echo "  From: $COMMON_SNAPSHOT"
+	echo "  To:   $TODAY_SNAPSHOT"
 	echo "___"
 
-	calculateestimatedtime "$NASPOOL" "80"
-
-	zfs send "${NASPOOL}@daily-${TODAY}" | zfs receive -F ${BACKUP}
+	if zfs send -i "$COMMON_SNAPSHOT" "$TODAY_SNAPSHOT" | zfs receive -F ${BACKUP}; then
+		echo "Incremental backup successful."
+	else
+		echo "Incremental backup failed — performing full backup instead."
+		zfs destroy -r ${BACKUP} || true
+		zfs create ${BACKUP}
+		zfs send "$TODAY_SNAPSHOT" | zfs receive -F ${BACKUP}
+	fi
+else
+	echo "No common snapshot found — performing full backup."
+	zfs destroy -r ${BACKUP} || true
+	zfs create ${BACKUP}
+	zfs send "$TODAY_SNAPSHOT" | zfs receive -F ${BACKUP}
 fi
+
+echo "Backup completed successfully at: $(date)"
 echo "___"
 
 # ===========================
